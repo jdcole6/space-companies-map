@@ -5,236 +5,506 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Space Companies — Office Map</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --panel-bg: rgba(255,255,255,0.96);
-    --text: #1a1a2e;
-    --muted: #5a5a72;
-    --border: #e2e2ee;
-    --accent: #2b4eff;
+    --bg: #ffffff;
+    --panel: rgba(255,255,255,0.97);
+    --text: #16213a;
+    --muted: #5d6781;
+    --faint: #98a0b3;
+    --line: #e3e7f0;
+    --hover: #f2f5fb;
+    --accent: #2447b8;
+    --accent-soft: #e6ecfb;
+    --shadow: 0 10px 30px rgba(22,33,58,0.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10172a;
+      --panel: rgba(18,26,46,0.97);
+      --text: #e7ebf5;
+      --muted: #a4adc4;
+      --faint: #6d7791;
+      --line: #27324f;
+      --hover: #1c2742;
+      --accent: #8aa6ff;
+      --accent-soft: #22305a;
+      --shadow: 0 10px 30px rgba(0,0,0,0.45);
+    }
   }
   * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
+  html, body { height: 100%; margin: 0; background: var(--bg); }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
     color: var(--text);
   }
-  #map { position: absolute; inset: 0; z-index: 0; background: #aadaff; }
+  #map { position: absolute; inset: 0; z-index: 0; }
 
   .panel {
     position: absolute;
     top: calc(12px + env(safe-area-inset-top, 0px));
     right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     z-index: 1000;
-    width: 260px;
-    max-height: calc(100% - 24px - env(safe-area-inset-top, 0px));
-    overflow-y: auto;
-    background: var(--panel-bg);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    box-shadow: 0 6px 24px rgba(0,0,0,0.15);
-    padding: 14px 16px;
-    backdrop-filter: blur(6px);
+    width: 330px;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(8px);
+    overflow: hidden;
   }
-  .panel h1 { font-size: 15px; margin: 0 0 2px; }
-  .panel .sub { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
-  .status { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
-  .section-label {
-    font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
-    color: var(--muted); margin: 12px 0 6px; font-weight: 600;
-  }
-  .filter-row {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 13px; padding: 3px 0; cursor: pointer;
-  }
-  .filter-row input { cursor: pointer; }
-  .swatch { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; border: 1px solid rgba(0,0,0,0.2); }
-  .filter-count { color: var(--muted); font-size: 11px; margin-left: auto; }
-  .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    width: 100%; margin-top: 12px; padding: 8px 10px;
-    font-size: 13px; font-weight: 600; color: #fff; background: var(--accent);
-    border: none; border-radius: 8px; cursor: pointer;
-  }
-  .btn:disabled { opacity: .6; cursor: default; }
-  .btn.secondary { background: #eef0ff; color: var(--accent); }
+  .panel.hidden { display: none; }
 
-  .toggle-btn {
+  .panel-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+  .title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .panel h1 { font-size: 16px; font-weight: 600; margin: 0; }
+  .status { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .status strong { color: var(--text); font-weight: 600; }
+
+  .icon-btn {
+    border: none; background: transparent; color: var(--muted);
+    font-size: 18px; line-height: 1; padding: 4px 6px; border-radius: 6px; cursor: pointer;
+  }
+  .icon-btn:hover { background: var(--hover); color: var(--text); }
+
+  .panel-body { flex: 1; overflow-y: auto; padding: 4px 16px 12px; }
+
+  .group-label { font-size: 13px; font-weight: 600; margin: 14px 0 6px; display: flex; align-items: center; justify-content: space-between; }
+  .group-label .links { font-weight: 400; display: flex; gap: 10px; }
+
+  .link-btn {
+    border: none; background: none; padding: 0; cursor: pointer;
+    color: var(--accent); font: inherit; font-size: 13px;
+  }
+  .link-btn:hover { text-decoration: underline; }
+
+  .segmented { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .segmented button {
+    flex: 1; border: none; background: transparent; color: var(--muted);
+    font: inherit; font-size: 13px; padding: 6px 4px; cursor: pointer;
+  }
+  .segmented button + button { border-left: 1px solid var(--line); }
+  .segmented button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    border: 1px solid var(--line); background: transparent; color: var(--muted);
+    font: inherit; font-size: 12.5px; padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: transparent; color: var(--accent); font-weight: 500; }
+  .chip .n { opacity: .7; margin-left: 4px; }
+
+  .search {
+    width: 100%; padding: 8px 10px; font: inherit; font-size: 13.5px;
+    color: var(--text); background: transparent;
+    border: 1px solid var(--line); border-radius: 8px;
+  }
+  .search::placeholder { color: var(--faint); }
+
+  .sector-group { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 6px; }
+  .sector-head { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+  .sector-head .caret {
+    border: none; background: none; color: var(--muted); cursor: pointer;
+    width: 18px; padding: 0; font-size: 11px; transition: transform .15s ease;
+  }
+  .sector-group.collapsed .caret { transform: rotate(-90deg); }
+  .sector-group.collapsed .company-list { display: none; }
+  .sector-name { font-weight: 600; font-size: 13px; flex: 1; cursor: pointer; }
+  .count { color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+  .company-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 4px 4px 26px; border-radius: 6px; font-size: 13.5px;
+  }
+  .company-row:hover { background: var(--hover); }
+  .company-row.empty { opacity: .45; }
+  .company-row label { display: flex; align-items: center; gap: 8px; flex: 1; cursor: pointer; min-width: 0; }
+  .company-row .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .swatch { width: 11px; height: 11px; border-radius: 50%; flex: 0 0 auto; }
+  .only-btn { visibility: hidden; font-size: 12px; }
+  .company-row:hover .only-btn, .only-btn:focus { visibility: visible; }
+
+  input[type=checkbox] { accent-color: var(--accent); margin: 0; cursor: pointer; }
+
+  .empty-note { color: var(--muted); font-size: 13px; padding: 10px 0; }
+
+  .panel-foot {
+    display: flex; gap: 8px; padding: 10px 16px;
+    border-top: 1px solid var(--line);
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .btn {
+    flex: 1; padding: 8px 10px; font: inherit; font-size: 13px; font-weight: 500;
+    border-radius: 8px; cursor: pointer; border: 1px solid var(--line);
+    background: transparent; color: var(--text);
+  }
+  .btn:hover { background: var(--hover); }
+  .btn.primary { background: var(--accent); color: #fff; border-color: transparent; }
+  .btn:disabled { opacity: .6; cursor: default; }
+
+  .open-btn {
     position: absolute;
     top: calc(12px + env(safe-area-inset-top, 0px));
     right: 12px;
     z-index: 1001;
     display: none;
-    padding: 8px 12px; font-size: 13px; font-weight: 600;
-    background: var(--panel-bg); border: 1px solid var(--border);
-    border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.15); cursor: pointer;
+    padding: 9px 14px; font: inherit; font-size: 13.5px; font-weight: 600;
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); cursor: pointer;
   }
+  .open-btn.show { display: block; }
 
-  .popup-title { font-weight: 700; font-size: 14px; margin: 0 0 2px; }
-  .popup-loc { color: var(--muted); font-size: 12px; margin: 0 0 6px; }
-  .popup-meta { font-size: 12px; margin: 2px 0; }
-  .popup-tag {
-    display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px;
-    background: #eef0ff; color: var(--accent); margin: 2px 0;
-  }
-  .popup-notes { font-size: 12px; color: #333; margin: 6px 0 0; }
-  .popup-link { font-size: 12px; display: inline-block; margin-top: 8px; color: var(--accent); }
-  .leaflet-popup-content { margin: 12px 14px; max-width: 230px; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .popup-title { font-weight: 600; font-size: 14px; margin: 0 0 2px; }
+  .popup-loc { color: #5d6781; font-size: 12.5px; margin: 0 0 6px; }
+  .popup-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+  .popup-tag { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: #e6ecfb; color: #2447b8; }
+  .popup-notes { font-size: 12.5px; color: #333; margin: 6px 0 0; }
+  .popup-link { font-size: 12.5px; display: inline-block; margin-top: 8px; color: #2447b8; }
+  .leaflet-popup-content { margin: 12px 14px; max-width: 250px; font-family: "IBM Plex Sans", sans-serif; }
 
   @media (max-width: 640px) {
-    .panel { width: calc(100% - 24px); max-width: 320px; display: none; }
-    .panel.open { display: block; }
-    .toggle-btn { display: block; }
-    .panel.open + .toggle-btn { display: none; }
+    .panel { left: 12px; right: 12px; width: auto; top: auto; max-height: 72%; }
   }
+  @media (prefers-reduced-motion: reduce) { .caret { transition: none; } }
 </style>
 </head>
 <body>
 <div id="map"></div>
 
-<button class="toggle-btn" id="toggleBtn" aria-label="Show filters">☰ Filters</button>
+<button class="open-btn" id="openBtn">Filters</button>
 
-<div class="panel" id="panel">
-  <h1>Space Companies</h1>
-  <p class="sub">Office locations — live from your database</p>
-  <p class="status" id="status">Loading…</p>
+<aside class="panel" id="panel" aria-label="Map filters">
+  <div class="panel-head">
+    <div class="title-row">
+      <h1>Space companies</h1>
+      <button class="icon-btn" id="closeBtn" aria-label="Hide filters">×</button>
+    </div>
+    <p class="status" id="status">Loading offices…</p>
+  </div>
 
-  <div id="filters"></div>
+  <div class="panel-body">
+    <div class="group-label">Region</div>
+    <div class="segmented" id="regionControl">
+      <button data-region="all" aria-pressed="true">All</button>
+      <button data-region="us" aria-pressed="false">U.S.</button>
+      <button data-region="intl" aria-pressed="false">International</button>
+    </div>
 
-  <button class="btn" id="refreshBtn">↻ Refresh data</button>
-  <button class="btn secondary" id="closeBtn" style="display:none;">Close</button>
-</div>
+    <div class="group-label">
+      <span>Site type</span>
+      <span class="links">
+        <button class="link-btn" id="typesAll">All</button>
+        <button class="link-btn" id="typesNone">None</button>
+      </span>
+    </div>
+    <div class="chips" id="typeChips"></div>
+
+    <div class="group-label">
+      <span>Companies</span>
+      <span class="links">
+        <button class="link-btn" id="companiesAll">Select all</button>
+        <button class="link-btn" id="companiesNone">Clear</button>
+      </span>
+    </div>
+    <input class="search" id="search" type="search" placeholder="Search companies" autocomplete="off" />
+    <div id="companyGroups"></div>
+  </div>
+
+  <div class="panel-foot">
+    <button class="btn" id="resetBtn">Reset</button>
+    <button class="btn" id="fitBtn">Zoom to pins</button>
+    <button class="btn primary" id="refreshBtn">Refresh</button>
+  </div>
+</aside>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-  // ---- Your Supabase project (public, read-only) ----
+  // Public, read-only key: the offices table only allows reads for this key.
   const SUPABASE_URL = "https://ffgpmmaklsxktmircrlt.supabase.co";
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmZ3BtbWFrbHN4a3RtaXJjcmx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4MzczMzgsImV4cCI6MjEwNTQxMzMzOH0.bODYQ4QvgPhauJ_uFeWkFBnG6lnlqH6oP2h6hxv0cI4";
-  // This is the public anon key. It's safe to publish: the offices table is locked to read-only for it.
 
-  const PALETTE = ["#e6194B","#3cb44b","#4363d8","#f58231","#911eb4","#42d4f4",
-                   "#f032e6","#469990","#9A6324","#800000","#000075","#808000"];
-
+  const statusEl = document.getElementById("status");
   if (typeof L === "undefined") {
-    document.getElementById("status").textContent =
-      "Map library failed to load — check your connection and reload.";
-    throw new Error("Leaflet (L) failed to load from CDN");
+    statusEl.textContent = "The map library didn't load. Check your connection and reload the page.";
+    throw new Error("Leaflet failed to load");
   }
 
-  const map = L.map("map", { zoomControl: true }).setView([39.5, -98.35], 4);
+  const map = L.map("map", { zoomControl: false, worldCopyJump: true }).setView([39.5, -98.35], 4);
+  L.control.zoom({ position: "bottomleft" }).addTo(map);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(map);
+  const layer = L.layerGroup().addTo(map);
 
-  const statusEl = document.getElementById("status");
-  const filtersEl = document.getElementById("filters");
-  const refreshBtn = document.getElementById("refreshBtn");
+  // ---------- state ----------
+  let rows = [];
+  let colorOf = {};
+  const state = {
+    region: "all",
+    types: new Set(),       // active site types
+    companies: new Set(),   // active companies
+    search: "",
+    collapsed: new Set()    // collapsed sector groups
+  };
+  let firstLoad = true;
 
-  let layerGroup = L.layerGroup().addTo(map);
-  let allRows = [];
-  let colorByCompany = {};
-  const activeCompanies = new Set();
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const uniq = arr => [...new Set(arr.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const isUS = r => r.country === "USA";
 
-  function esc(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, c => (
-      {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]
-    ));
+  function passesFacets(r) {
+    if (state.region === "us" && !isUS(r)) return false;
+    if (state.region === "intl" && isUS(r)) return false;
+    return state.types.has(r.location_type || "Other");
   }
+  const isShown = r => passesFacets(r) && state.companies.has(r.company);
 
+  // ---------- data ----------
   async function loadData() {
-    refreshBtn.disabled = true;
-    statusEl.textContent = "Loading…";
+    const btn = document.getElementById("refreshBtn");
+    btn.disabled = true;
+    statusEl.textContent = "Loading offices…";
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/offices?select=*&order=company,state_region,city`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/offices?select=*&order=company,city`, {
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      allRows = await res.json();
+      if (!res.ok) throw new Error(`the database returned HTTP ${res.status}`);
+      rows = await res.json();
 
-      const companies = [...new Set(allRows.map(r => r.company).filter(Boolean))].sort();
-      colorByCompany = {};
-      companies.forEach((c, i) => { colorByCompany[c] = PALETTE[i % PALETTE.length]; });
-      if (activeCompanies.size === 0) companies.forEach(c => activeCompanies.add(c));
+      const companies = uniq(rows.map(r => r.company));
+      colorOf = {};
+      companies.forEach((c, i) => {
+        const hue = Math.round((i * 137.508) % 360);
+        colorOf[c] = `hsl(${hue} 68% 46%)`;
+      });
 
-      buildFilters(companies);
-      render();
+      // New companies or types appear switched on; existing choices are kept.
+      const types = uniq(rows.map(r => r.location_type || "Other"));
+      if (firstLoad) {
+        companies.forEach(c => state.companies.add(c));
+        types.forEach(t => state.types.add(t));
+      } else {
+        companies.forEach(c => { if (!knownCompanies.has(c)) state.companies.add(c); });
+        types.forEach(t => { if (!knownTypes.has(t)) state.types.add(t); });
+      }
+      knownCompanies = new Set(companies);
+      knownTypes = new Set(types);
+
+      renderAll();
+      if (firstLoad) { fitToPins(); firstLoad = false; }
     } catch (err) {
-      statusEl.textContent = "Couldn't load data: " + err.message;
+      statusEl.textContent = `Couldn't load offices: ${err.message}. Press Refresh to try again.`;
     } finally {
-      refreshBtn.disabled = false;
+      btn.disabled = false;
     }
   }
+  let knownCompanies = new Set();
+  let knownTypes = new Set();
 
-  function buildFilters(companies) {
-    const counts = {};
-    allRows.forEach(r => { counts[r.company] = (counts[r.company] || 0) + 1; });
-    let html = '<div class="section-label">Companies</div>';
-    companies.forEach(c => {
-      const checked = activeCompanies.has(c) ? "checked" : "";
-      html += `<label class="filter-row">
-        <input type="checkbox" data-company="${esc(c)}" ${checked}/>
-        <span class="swatch" style="background:${colorByCompany[c]}"></span>
-        <span>${esc(c)}</span>
-        <span class="filter-count">${counts[c] || 0}</span>
-      </label>`;
-    });
-    filtersEl.innerHTML = html;
-    filtersEl.querySelectorAll("input[type=checkbox]").forEach(cb => {
-      cb.addEventListener("change", () => {
-        const c = cb.getAttribute("data-company");
-        if (cb.checked) activeCompanies.add(c); else activeCompanies.delete(c);
-        render();
-      });
-    });
+  // ---------- rendering ----------
+  function renderAll() {
+    renderTypeChips();
+    renderCompanies();
+    renderMap();
   }
 
-  function render() {
-    layerGroup.clearLayers();
-    const shown = allRows.filter(r =>
-      activeCompanies.has(r.company) &&
-      r.latitude != null && r.longitude != null
-    );
-    const bounds = [];
-    shown.forEach(r => {
+  function renderTypeChips() {
+    const el = document.getElementById("typeChips");
+    const counts = {};
+    rows.forEach(r => {
+      if (state.region === "us" && !isUS(r)) return;
+      if (state.region === "intl" && isUS(r)) return;
+      if (!state.companies.has(r.company)) return;
+      const t = r.location_type || "Other";
+      counts[t] = (counts[t] || 0) + 1;
+    });
+    el.innerHTML = [...knownTypes].map(t =>
+      `<button class="chip" data-type="${esc(t)}" aria-pressed="${state.types.has(t)}">${esc(t)}<span class="n">${counts[t] || 0}</span></button>`
+    ).join("");
+  }
+
+  function renderCompanies() {
+    const wrap = document.getElementById("companyGroups");
+    const q = state.search.trim().toLowerCase();
+
+    const facetCount = {};
+    rows.forEach(r => { if (passesFacets(r)) facetCount[r.company] = (facetCount[r.company] || 0) + 1; });
+
+    const bySector = {};
+    uniq(rows.map(r => r.company)).forEach(c => {
+      if (q && !c.toLowerCase().includes(q)) return;
+      const sector = (rows.find(r => r.company === c) || {}).sector || "Other";
+      (bySector[sector] = bySector[sector] || []).push(c);
+    });
+
+    const sectors = Object.keys(bySector).sort((a, b) => a.localeCompare(b));
+    if (!sectors.length) {
+      wrap.innerHTML = `<p class="empty-note">No companies match “${esc(state.search)}”.</p>`;
+      return;
+    }
+
+    wrap.innerHTML = sectors.map(sector => {
+      const list = bySector[sector];
+      const on = list.filter(c => state.companies.has(c)).length;
+      const sites = list.reduce((n, c) => n + (state.companies.has(c) ? (facetCount[c] || 0) : 0), 0);
+      const collapsed = state.collapsed.has(sector) && !q;
+      return `
+        <div class="sector-group${collapsed ? " collapsed" : ""}" data-sector="${esc(sector)}">
+          <div class="sector-head">
+            <button class="caret" data-action="toggle-group" aria-label="Show or hide ${esc(sector)}" aria-expanded="${!collapsed}">▼</button>
+            <input type="checkbox" data-action="group-check" aria-label="Select all in ${esc(sector)}"
+              ${on === list.length ? "checked" : ""} data-indeterminate="${on > 0 && on < list.length}" />
+            <span class="sector-name" data-action="toggle-group">${esc(sector)}</span>
+            <span class="count">${sites} sites</span>
+          </div>
+          <div class="company-list">
+            ${list.map(c => `
+              <div class="company-row${facetCount[c] ? "" : " empty"}">
+                <label>
+                  <input type="checkbox" data-company="${esc(c)}" ${state.companies.has(c) ? "checked" : ""} />
+                  <span class="swatch" style="background:${colorOf[c]}"></span>
+                  <span class="name">${esc(c)}</span>
+                </label>
+                <button class="link-btn only-btn" data-only="${esc(c)}">Only</button>
+                <span class="count">${facetCount[c] || 0}</span>
+              </div>`).join("")}
+          </div>
+        </div>`;
+    }).join("");
+
+    wrap.querySelectorAll('input[data-indeterminate="true"]').forEach(cb => { cb.indeterminate = true; });
+  }
+
+  function renderMap() {
+    layer.clearLayers();
+    let shown = 0;
+    const companiesShown = new Set();
+    rows.forEach(r => {
+      if (!isShown(r)) return;
       const lat = parseFloat(r.latitude), lng = parseFloat(r.longitude);
       if (isNaN(lat) || isNaN(lng)) return;
-      const marker = L.circleMarker([lat, lng], {
-        radius: 7,
-        color: "#fff", weight: 1.5,
-        fillColor: colorByCompany[r.company] || "#666",
-        fillOpacity: 0.9
-      });
-      const careers = r.careers_url
-        ? `<a class="popup-link" href="${esc(r.careers_url)}" target="_blank" rel="noopener">View careers &rarr;</a>` : "";
-      const notes = r.notes ? `<p class="popup-notes">${esc(r.notes)}</p>` : "";
-      const type = r.location_type ? `<span class="popup-tag">${esc(r.location_type)}</span>` : "";
-      marker.bindPopup(
-        `<p class="popup-title">${esc(r.company)}</p>
-         <p class="popup-loc">${esc(r.city)}, ${esc(r.state_region)}</p>
-         ${type}
-         <p class="popup-meta">${esc(r.division || "")}</p>
-         ${notes}${careers}`
-      );
-      marker.addTo(layerGroup);
-      bounds.push([lat, lng]);
+      shown++;
+      companiesShown.add(r.company);
+      const place = [r.city, r.state_region, r.country !== "USA" ? r.country : null].filter(Boolean).join(", ");
+      const tags = [r.location_type, r.sector].filter(Boolean)
+        .map(t => `<span class="popup-tag">${esc(t)}</span>`).join("");
+      L.circleMarker([lat, lng], {
+        radius: 7, color: "#fff", weight: 1.5,
+        fillColor: colorOf[r.company] || "#666", fillOpacity: 0.92
+      }).bindPopup(`
+        <p class="popup-title">${esc(r.company)}</p>
+        <p class="popup-loc">${esc(place)}${r.division ? ` · ${esc(r.division)}` : ""}</p>
+        <div class="popup-tags">${tags}</div>
+        ${r.notes ? `<p class="popup-notes">${esc(r.notes)}</p>` : ""}
+        ${r.careers_url ? `<a class="popup-link" href="${esc(r.careers_url)}" target="_blank" rel="noopener">Open careers page</a>` : ""}
+      `).addTo(layer);
     });
-
-    const total = allRows.length;
-    statusEl.textContent = `Showing ${shown.length} of ${total} office${total === 1 ? "" : "s"}`;
-    if (bounds.length) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 8 });
+    statusEl.innerHTML = `<strong>${shown}</strong> of ${rows.length} offices from <strong>${companiesShown.size}</strong> companies`;
   }
 
-  refreshBtn.addEventListener("click", loadData);
+  function fitToPins() {
+    const pts = [];
+    layer.eachLayer(m => pts.push(m.getLatLng()));
+    if (pts.length) map.fitBounds(pts, { padding: [40, 40], maxZoom: 9 });
+  }
 
-  // Mobile panel toggle
+  const update = () => { renderTypeChips(); renderCompanies(); renderMap(); };
+
+  // ---------- events ----------
+  document.getElementById("regionControl").addEventListener("click", e => {
+    const b = e.target.closest("button[data-region]");
+    if (!b) return;
+    state.region = b.dataset.region;
+    document.querySelectorAll("#regionControl button").forEach(x =>
+      x.setAttribute("aria-pressed", x === b));
+    update();
+    fitToPins();
+  });
+
+  document.getElementById("typeChips").addEventListener("click", e => {
+    const b = e.target.closest("button[data-type]");
+    if (!b) return;
+    const t = b.dataset.type;
+    state.types.has(t) ? state.types.delete(t) : state.types.add(t);
+    update();
+  });
+  document.getElementById("typesAll").onclick = () => { knownTypes.forEach(t => state.types.add(t)); update(); };
+  document.getElementById("typesNone").onclick = () => { state.types.clear(); update(); };
+
+  // Select all / Clear act on the companies currently listed (respecting the search box).
+  const listedCompanies = () => {
+    const q = state.search.trim().toLowerCase();
+    return [...knownCompanies].filter(c => !q || c.toLowerCase().includes(q));
+  };
+  document.getElementById("companiesAll").onclick = () => { listedCompanies().forEach(c => state.companies.add(c)); update(); };
+  document.getElementById("companiesNone").onclick = () => { listedCompanies().forEach(c => state.companies.delete(c)); update(); };
+
+  document.getElementById("search").addEventListener("input", e => {
+    state.search = e.target.value;
+    renderCompanies();
+  });
+
+  document.getElementById("companyGroups").addEventListener("click", e => {
+    const only = e.target.closest("[data-only]");
+    if (only) {
+      state.companies.clear();
+      state.companies.add(only.dataset.only);
+      update();
+      fitToPins();
+      return;
+    }
+    const toggle = e.target.closest('[data-action="toggle-group"]');
+    if (toggle) {
+      const sector = toggle.closest(".sector-group").dataset.sector;
+      state.collapsed.has(sector) ? state.collapsed.delete(sector) : state.collapsed.add(sector);
+      renderCompanies();
+    }
+  });
+
+  document.getElementById("companyGroups").addEventListener("change", e => {
+    const cb = e.target;
+    if (cb.dataset.company) {
+      cb.checked ? state.companies.add(cb.dataset.company) : state.companies.delete(cb.dataset.company);
+    } else if (cb.dataset.action === "group-check") {
+      const group = cb.closest(".sector-group");
+      group.querySelectorAll("input[data-company]").forEach(x => {
+        cb.checked ? state.companies.add(x.dataset.company) : state.companies.delete(x.dataset.company);
+      });
+    }
+    update();
+  });
+
+  document.getElementById("resetBtn").onclick = () => {
+    state.region = "all";
+    document.querySelectorAll("#regionControl button").forEach(x =>
+      x.setAttribute("aria-pressed", x.dataset.region === "all"));
+    knownTypes.forEach(t => state.types.add(t));
+    knownCompanies.forEach(c => state.companies.add(c));
+    state.search = "";
+    document.getElementById("search").value = "";
+    state.collapsed.clear();
+    update();
+    fitToPins();
+  };
+  document.getElementById("fitBtn").onclick = fitToPins;
+  document.getElementById("refreshBtn").onclick = loadData;
+
   const panel = document.getElementById("panel");
-  const toggleBtn = document.getElementById("toggleBtn");
-  const closeBtn = document.getElementById("closeBtn");
-  toggleBtn.addEventListener("click", () => { panel.classList.add("open"); });
-  closeBtn.addEventListener("click", () => { panel.classList.remove("open"); });
-  function syncCloseBtn() { closeBtn.style.display = window.innerWidth <= 640 ? "block" : "none"; }
-  window.addEventListener("resize", syncCloseBtn); syncCloseBtn();
+  const openBtn = document.getElementById("openBtn");
+  document.getElementById("closeBtn").onclick = () => { panel.classList.add("hidden"); openBtn.classList.add("show"); };
+  openBtn.onclick = () => { panel.classList.remove("hidden"); openBtn.classList.remove("show"); };
+  if (window.innerWidth <= 640) { panel.classList.add("hidden"); openBtn.classList.add("show"); }
 
   loadData();
 </script>
